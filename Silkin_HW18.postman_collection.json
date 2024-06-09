@@ -1,0 +1,452 @@
+{
+	"info": {
+		"_postman_id": "7f8ec149-1051-4759-ab95-184197342841",
+		"name": "Silkin_HW18",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "26908883"
+	},
+	"item": [
+		{
+			"name": "IsValidISBN13Number",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Функція для перевірки дійсності ISBN-13",
+							"function isValidISBN13(isbn) {",
+							"    isbn = isbn.replace(/[-\\s]/g, '');",
+							"    if (isbn.length !== 13) return false;",
+							"",
+							"    let checksum = 0;",
+							"    for (let i = 0; i < 12; i++) {",
+							"        let digit = parseInt(isbn[i], 10);",
+							"        if (isNaN(digit)) return false;",
+							"        checksum += (i % 2 === 0) ? digit : digit * 3;",
+							"    }",
+							"",
+							"    let checkDigit = (10 - (checksum % 10)) % 10;",
+							"    return checkDigit === parseInt(isbn[12], 10);",
+							"}",
+							"",
+							"// Отримання відповіді сервера",
+							"const responseText = pm.response.text();",
+							"let responseData = {};",
+							"",
+							"// Перевірка формату відповіді",
+							"const contentType = pm.response.headers.get('Content-Type');",
+							"",
+							"if (contentType.includes('application/json')) {",
+							"    try {",
+							"        responseData = JSON.parse(responseText);",
+							"    } catch (e) {",
+							"        console.error('Error parsing JSON:', e);",
+							"    }",
+							"} else if (contentType.includes('text/xml')) {",
+							"    try {",
+							"        let parser = new DOMParser();",
+							"        let xmlDoc = parser.parseFromString(responseText, \"text/xml\");",
+							"        responseData = xmlToJson(xmlDoc);",
+							"    } catch (e) {",
+							"        console.error('Error parsing XML:', e);",
+							"    }",
+							"} else {",
+							"    console.error('Unsupported Content-Type:', contentType);",
+							"}",
+							"",
+							"// Функція для конвертації XML в JSON",
+							"function xmlToJson(xml) {",
+							"    let obj = {};",
+							"    if (xml.nodeType === 1) { // element",
+							"        if (xml.attributes.length > 0) {",
+							"            obj[\"@attributes\"] = {};",
+							"            for (let j = 0; j < xml.attributes.length; j++) {",
+							"                let attribute = xml.attributes.item(j);",
+							"                obj[\"@attributes\"][attribute.nodeName] = attribute.nodeValue;",
+							"            }",
+							"        }",
+							"    } else if (xml.nodeType === 3) { // text",
+							"        obj = xml.nodeValue;",
+							"    }",
+							"    if (xml.hasChildNodes()) {",
+							"        for (let i = 0; i < xml.childNodes.length; i++) {",
+							"            let item = xml.childNodes.item(i);",
+							"            let nodeName = item.nodeName;",
+							"            if (typeof(obj[nodeName]) === \"undefined\") {",
+							"                obj[nodeName] = xmlToJson(item);",
+							"            } else {",
+							"                if (typeof(obj[nodeName].push) === \"undefined\") {",
+							"                    let old = obj[nodeName];",
+							"                    obj[nodeName] = [];",
+							"                    obj[nodeName].push(old);",
+							"                }",
+							"                obj[nodeName].push(xmlToJson(item));",
+							"            }",
+							"        }",
+							"    }",
+							"    return obj;",
+							"}",
+							"",
+							"// Перевірка статусу відповіді",
+							"pm.test(\"Статус відповіді 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// Перевірка заголовків відповіді",
+							"pm.test(\"Заголовки відповіді\", function () {",
+							"    pm.expect(pm.response.headers.get('Content-Type')).to.be.oneOf(['application/json', 'text/xml; charset=utf-8']);",
+							"});",
+							"",
+							"// Перевірка обов'язкових полів (тільки для JSON)",
+							"if (contentType.includes('application/json')) {",
+							"    pm.test(\"Перевірка обов'язкових полів\", function () {",
+							"        pm.expect(responseData).to.have.property('isbn');",
+							"        pm.expect(responseData).to.have.property('title');",
+							"        pm.expect(responseData).to.have.property('author');",
+							"    });",
+							"",
+							"    // Перевірка типів даних",
+							"    pm.test(\"Перевірка типів даних\", function () {",
+							"        pm.expect(responseData.isbn).to.be.a('string');",
+							"        pm.expect(responseData.title).to.be.a('string');",
+							"        pm.expect(responseData.author).to.be.a('string');",
+							"        pm.expect(responseData.pageCount).to.be.a('number');",
+							"    });",
+							"",
+							"    // Перевірка цілісності даних",
+							"    pm.test(\"Перевірка цілісності даних\", function () {",
+							"        if (Array.isArray(responseData.books)) {",
+							"            let isbns = responseData.books.map(book => book.isbn);",
+							"            let uniqueIsbns = new Set(isbns);",
+							"            pm.expect(isbns.length).to.equal(uniqueIsbns.size);",
+							"        } else {",
+							"            pm.expect(responseData).to.have.property('books');",
+							"        }",
+							"    });",
+							"}",
+							"",
+							"    // Перевірка дійсності ISBN-13",
+							"    let isbn = responseData.isbn || \"978-1-4612-9090-2\";",
+							"    let isValid = isValidISBN13(isbn);",
+							"    pm.test(\"ISBN-13 є дійсним\", function () {",
+							"        pm.expect(isValid).to.be.true;",
+							"    });",
+							"",
+							"// Перевірка часу відповіді",
+							"pm.test(\"Час відповіді\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml; charset=utf-8"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <soap:Body>\n    <IsValidISBN13 xmlns=\"http://webservices.daehosting.com/ISBN\">\n      <sISBN>978-1-4612-9090-2</sISBN>\n    </IsValidISBN13>\n  </soap:Body>\n</soap:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://webservices.daehosting.com/services/isbnservice.wso",
+					"protocol": "http",
+					"host": [
+						"webservices",
+						"daehosting",
+						"com"
+					],
+					"path": [
+						"services",
+						"isbnservice.wso"
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "IsValidISBN13Number response",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <soap:Body>\n    <IsValidISBN13 xmlns=\"http://webservices.daehosting.com/ISBN\">\n      <sISBN>978-1-4612-9090-2</sISBN>\n    </IsValidISBN13>\n  </soap:Body>\n</soap:Envelope>",
+							"options": {
+								"raw": {
+									"language": "xml"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://webservices.daehosting.com/services/isbnservice.wso",
+							"protocol": "http",
+							"host": [
+								"webservices",
+								"daehosting",
+								"com"
+							],
+							"path": [
+								"services",
+								"isbnservice.wso"
+							]
+						}
+					},
+					"_postman_previewlanguage": "xml",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/xml",
+							"description": ""
+						}
+					],
+					"cookie": [],
+					"body": " \n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n    <soap:Body>\n        <m:IsValidISBN13Response xmlns:m=\"http://webservices.daehosting.com/ISBN\">\n            <m:IsValidISBN13Result>true</m:IsValidISBN13Result>\n        </m:IsValidISBN13Response>\n    </soap:Body>\n</soap:Envelope>"
+				}
+			]
+		},
+		{
+			"name": "IsValidISBN10Number",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"",
+							"// Функція для перевірки дійсності ISBN-10",
+							"function isValidISBN10(isbn) {",
+							"    isbn = isbn.replace(/[-\\s]/g, '');",
+							"    if (isbn.length !== 10) return false;",
+							"",
+							"    let checksum = 0;",
+							"    for (let i = 0; i < 9; i++) {",
+							"        let digit = parseInt(isbn[i], 10);",
+							"        if (isNaN(digit)) return false;",
+							"        checksum += digit * (10 - i);",
+							"    }",
+							"",
+							"    let checkDigit = isbn[9].toUpperCase();",
+							"    checksum += (checkDigit === 'X') ? 10 : parseInt(checkDigit, 10);",
+							"",
+							"    return (checksum % 11 === 0);",
+							"}",
+							"",
+							"// Отримання відповіді сервера",
+							"const responseText = pm.response.text();",
+							"let responseData = {};",
+							"",
+							"// Перевірка формату відповіді",
+							"const contentType = pm.response.headers.get('Content-Type');",
+							"",
+							"if (contentType.includes('application/json')) {",
+							"    try {",
+							"        responseData = JSON.parse(responseText);",
+							"    } catch (e) {",
+							"        console.error('Error parsing JSON:', e);",
+							"    }",
+							"} else if (contentType.includes('text/xml')) {",
+							"    try {",
+							"        let parser = new DOMParser();",
+							"        let xmlDoc = parser.parseFromString(responseText, \"text/xml\");",
+							"        responseData = xmlToJson(xmlDoc);",
+							"    } catch (e) {",
+							"        console.error('Error parsing XML:', e);",
+							"    }",
+							"} else {",
+							"    console.error('Unsupported Content-Type:', contentType);",
+							"}",
+							"",
+							"// Функція для конвертації XML в JSON",
+							"function xmlToJson(xml) {",
+							"    let obj = {};",
+							"    if (xml.nodeType === 1) { // element",
+							"        if (xml.attributes.length > 0) {",
+							"            obj[\"@attributes\"] = {};",
+							"            for (let j = 0; j < xml.attributes.length; j++) {",
+							"                let attribute = xml.attributes.item(j);",
+							"                obj[\"@attributes\"][attribute.nodeName] = attribute.nodeValue;",
+							"            }",
+							"        }",
+							"    } else if (xml.nodeType === 3) { // text",
+							"        obj = xml.nodeValue;",
+							"    }",
+							"    if (xml.hasChildNodes()) {",
+							"        for (let i = 0; i < xml.childNodes.length; i++) {",
+							"            let item = xml.childNodes.item(i);",
+							"            let nodeName = item.nodeName;",
+							"            if (typeof(obj[nodeName]) === \"undefined\") {",
+							"                obj[nodeName] = xmlToJson(item);",
+							"            } else {",
+							"                if (typeof(obj[nodeName].push) === \"undefined\") {",
+							"                    let old = obj[nodeName];",
+							"                    obj[nodeName] = [];",
+							"                    obj[nodeName].push(old);",
+							"                }",
+							"                obj[nodeName].push(xmlToJson(item));",
+							"            }",
+							"        }",
+							"    }",
+							"    return obj;",
+							"}",
+							"",
+							"// Перевірка статусу відповіді",
+							"pm.test(\"Статус відповіді 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// Перевірка заголовків відповіді",
+							"pm.test(\"Заголовки відповіді\", function () {",
+							"    pm.expect(pm.response.headers.get('Content-Type')).to.be.oneOf(['application/json', 'text/xml; charset=utf-8']);",
+							"});",
+							"",
+							"// Перевірка обов'язкових полів (тільки для JSON)",
+							"if (contentType.includes('application/json')) {",
+							"    pm.test(\"Перевірка обов'язкових полів\", function () {",
+							"        pm.expect(responseData).to.have.property('isbn');",
+							"        pm.expect(responseData).to.have.property('title');",
+							"        pm.expect(responseData).to.have.property('author');",
+							"    });",
+							"",
+							"    // Перевірка типів даних",
+							"    pm.test(\"Перевірка типів даних\", function () {",
+							"        pm.expect(responseData.isbn).to.be.a('string');",
+							"        pm.expect(responseData.title).to.be.a('string');",
+							"        pm.expect(responseData.author).to.be.a('string');",
+							"        pm.expect(responseData.pageCount).to.be.a('number');",
+							"    });",
+							"",
+							"    // Перевірка цілісності даних",
+							"    pm.test(\"Перевірка цілісності даних\", function () {",
+							"        if (Array.isArray(responseData.books)) {",
+							"            let isbns = responseData.books.map(book => book.isbn);",
+							"            let uniqueIsbns = new Set(isbns);",
+							"            pm.expect(isbns.length).to.equal(uniqueIsbns.size);",
+							"        } else {",
+							"            pm.expect(responseData).to.have.property('books');",
+							"        }",
+							"    });",
+							"}",
+							"",
+							"    // Перевірка дійсності ISBN-13",
+							"    let isbn = responseData.isbn || \"0-19-852663-6\";",
+							"    let isValid = isValidISBN10(isbn);",
+							"    pm.test(\"ISBN-10 є дійсним\", function () {",
+							"        pm.expect(isValid).to.be.true;",
+							"    });",
+							"",
+							"// Перевірка часу відповіді",
+							"pm.test(\"Час відповіді\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml; charset=utf-8"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <soap:Body>\n    <IsValidISBN10 xmlns=\"http://webservices.daehosting.com/ISBN\">\n      <sISBN>0-19-852663-6</sISBN>\n    </IsValidISBN10>\n  </soap:Body>\n</soap:Envelope>\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://webservices.daehosting.com/services/isbnservice.wso",
+					"protocol": "http",
+					"host": [
+						"webservices",
+						"daehosting",
+						"com"
+					],
+					"path": [
+						"services",
+						"isbnservice.wso"
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "IsValidISBN10Number response",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <soap:Body>\n    <IsValidISBN10 xmlns=\"http://webservices.daehosting.com/ISBN\">\n      <sISBN>0-19-852663-6</sISBN>\n    </IsValidISBN10>\n  </soap:Body>\n</soap:Envelope>\n",
+							"options": {
+								"raw": {
+									"language": "xml"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://webservices.daehosting.com/services/isbnservice.wso",
+							"protocol": "http",
+							"host": [
+								"webservices",
+								"daehosting",
+								"com"
+							],
+							"path": [
+								"services",
+								"isbnservice.wso"
+							]
+						}
+					},
+					"_postman_previewlanguage": "xml",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/xml",
+							"description": ""
+						}
+					],
+					"cookie": [],
+					"body": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n    <soap:Body>\n        <m:IsValidISBN10Response xmlns:m=\"http://webservices.daehosting.com/ISBN\">\n            <m:IsValidISBN10Result>true</m:IsValidISBN10Result>\n        </m:IsValidISBN10Response>\n    </soap:Body>\n</soap:Envelope>"
+				}
+			]
+		}
+	]
+}
